@@ -25,33 +25,95 @@ function Dashboard() {
       setLoading(true);
       console.log('Fetching from:', `\${config.apiUrl}/scores`);
       
-      const response = await axios.get(`\${config.apiUrl}/scores`);
-      console.log('API Response:', response);
+      const response = await axios.get(`\${config.apiUrl}/scores`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Parse the response if it's a string
-      let data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      console.log('Response data type:', typeof response.data);
       
-      // Handle the array format returned by your API
-      if (Array.isArray(data)) {
-        console.log('Data is an array with', data.length, 'items');
-        // Filter to only include metadata items
-        data = data.filter(item => item.question_id === 'metadata');
-        setFiles(data);
-        
-        if (data.length > 0) {
-          prepareChartData(data);
+      // Check if response.data is already an object
+      if (typeof response.data === 'object' && !Array.isArray(response.data)) {
+        console.log('Response is an object:', response.data);
+        if (response.data.Items) {
+          setFiles(response.data.Items);
+          if (response.data.Items.length > 0) {
+            prepareChartData(response.data.Items);
+          }
         } else {
-          console.log('No files found after filtering');
+          console.log('No Items property in response');
+          setFiles([]);
+        }
+      }
+      // Check if response.data is an array
+      else if (Array.isArray(response.data)) {
+        console.log('Response is an array with', response.data.length, 'items');
+        setFiles(response.data);
+        if (response.data.length > 0) {
+          prepareChartData(response.data);
+        }
+      }
+      // Check if response.data is a string that needs parsing
+      else if (typeof response.data === 'string') {
+        console.log('Response is a string, attempting to parse');
+        try {
+          const parsedData = JSON.parse(response.data);
+          console.log('Parsed data:', parsedData);
+          
+          if (Array.isArray(parsedData)) {
+            setFiles(parsedData);
+            if (parsedData.length > 0) {
+              prepareChartData(parsedData);
+            }
+          } else if (parsedData.Items) {
+            setFiles(parsedData.Items);
+            if (parsedData.Items.length > 0) {
+              prepareChartData(parsedData.Items);
+            }
+          } else {
+            console.log('Unexpected parsed data format');
+            setFiles([]);
+          }
+        } catch (parseError) {
+          console.error('Error parsing response as JSON:', parseError);
+          console.error('First 100 characters of response:', response.data.substring(0, 100));
+          setError('Error parsing API response: ' + parseError.message);
         }
       } else {
-        console.log('Data is not an array:', data);
+        console.log('Unexpected response format');
         setFiles([]);
       }
       
       setLoading(false);
     } catch (err) {
       console.error('Error fetching files:', err);
-      setError('Failed to load files: ' + err.message);
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response data:', err.response.data);
+        console.error('Error response status:', err.response.status);
+        console.error('Error response headers:', err.response.headers);
+        
+        // If the response contains HTML, log the first part to help diagnose
+        if (typeof err.response.data === 'string' && err.response.data.includes('<!doctype')) {
+          console.error('HTML response detected. First 200 chars:', err.response.data.substring(0, 200));
+          setError('Received HTML instead of JSON. The API might be returning an error page.');
+        } else {
+          setError('API error: ' + err.response.status + ' - ' + (err.response.data.message || 'Unknown error'));
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+        setError('No response from API server');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Request setup error:', err.message);
+        setError('Error setting up request: ' + err.message);
+      }
       setLoading(false);
     }
   };
