@@ -20,31 +20,44 @@ function Dashboard() {
   const [chartData, setChartData] = useState(null);
 
   useEffect(() => {
-    const fetchFiles = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`\${config.apiUrl}/scores`);
-        console.log('API Response:', response.data);
-        
-        // Parse the response if it's a string
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+  const fetchFiles = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching from:', `\${config.apiUrl}/scores`);
+      
+      const response = await axios.get(`\${config.apiUrl}/scores`);
+      console.log('API Response:', response);
+      
+      // Parse the response if it's a string
+      let data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+      
+      // Handle the array format returned by your API
+      if (Array.isArray(data)) {
+        console.log('Data is an array with', data.length, 'items');
+        // Filter to only include metadata items
+        data = data.filter(item => item.question_id === 'metadata');
         setFiles(data);
         
-        // Prepare chart data
-        if (data && data.length > 0) {
+        if (data.length > 0) {
           prepareChartData(data);
+        } else {
+          console.log('No files found after filtering');
         }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching files:', err);
-        setError('Failed to load files. Please try again later.');
-        setLoading(false);
+      } else {
+        console.log('Data is not an array:', data);
+        setFiles([]);
       }
-    };
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching files:', err);
+      setError(`Failed to load files: \${err.message}`);
+      setLoading(false);
+    }
+  };
 
-    fetchFiles();
-  }, []);
+  fetchFiles();
+}, []);
 
   const prepareChartData = (files) => {
     // This is a simple example - you might want to customize based on your data
