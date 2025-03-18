@@ -51,7 +51,7 @@ function Dashboard() {
       setLoading(false);
     } catch (err) {
       console.error('Error fetching files:', err);
-      setError(`Failed to load files: \${err.message}`);
+      setError('Failed to load files: ' + err.message);
       setLoading(false);
     }
   };
