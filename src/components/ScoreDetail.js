@@ -24,35 +24,47 @@ function ScoreDetail() {
   const [chartData, setChartData] = useState(null);
   
   useEffect(() => {
-    const fetchScores = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`\${config.apiUrl}/scores?file_id=\${fileId}`);
-        
-        // Parse the response if it's a string
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        
-        if (data.scores) {
-          setScores(data.scores);
-          prepareChartData(data.scores);
+  const fetchScores = async () => {
+    try {
+      setLoading(true);
+      
+      // First, get all items for this file_id
+      const response = await axios.get(`\${config.apiUrl}/scores?file_id=\${fileId}`);
+      
+      // Parse the response if it's a string
+      let data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+      
+      if (Array.isArray(data)) {
+        // Find the metadata item
+        const metadataItem = data.find(item => item.question_id === 'metadata');
+        if (metadataItem) {
+          setMetadata(metadataItem);
         }
         
-        if (data.metadata) {
-          setMetadata(data.metadata);
-        }
+        // Filter out metadata to get just the scores
+        const scoreItems = data.filter(item => item.question_id !== 'metadata');
+        setScores(scoreItems);
         
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching scores:', err);
-        setError('Failed to load scores. Please try again later.');
-        setLoading(false);
+        if (scoreItems.length > 0) {
+          prepareChartData(scoreItems);
+        }
+      } else {
+        console.error('Unexpected data format:', data);
+        setError('Received unexpected data format from the server');
       }
-    };
-
-    if (fileId) {
-      fetchScores();
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching scores:', err);
+      setError('Failed to load scores. Please try again later.');
+      setLoading(false);
     }
-  }, [fileId]);
+  };
+
+  if (fileId) {
+    fetchScores();
+  }
+}, [fileId]);
 
   const prepareChartData = (scores) => {
     // Calculate total scores and max possible
